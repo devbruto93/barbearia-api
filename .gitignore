@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Banco local de desenvolvimento ###
+data/
+*.mv.db
+*.trace.db
+
+### Segredos ###
+.env
+.env.*
+!.env.example

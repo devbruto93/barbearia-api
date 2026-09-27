@@ -2,6 +2,7 @@ package barbearia_api.controller;
 
 import barbearia_api.entity.Cliente;
 import barbearia_api.service.ClienteService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import barbearia_api.dto.ClienteDTO;
@@ -40,7 +41,8 @@ public class ClienteController {
 	}
 
 	@DeleteMapping("/{id}")
-	public void deletar(@PathVariable Long id){
+	public ResponseEntity<Void> deletar(@PathVariable Long id){
 		service.deletar(id);
+		return ResponseEntity.noContent().build();
 	}
 }

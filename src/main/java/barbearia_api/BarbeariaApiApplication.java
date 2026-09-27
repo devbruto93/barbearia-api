@@ -7,11 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BarbeariaApiApplication {
 
 	public static void main(String[] args) {
-		System.out.println("TESTE.....TESTE......TESTE...");
-		
-		for(int i = 10; i>= 0; i --){
-			System.out.println("Iniciando em - " + i);
-		}
+		SpringApplication.run(BarbeariaApiApplication.class, args);
 	}
 
 }

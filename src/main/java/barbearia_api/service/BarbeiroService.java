@@ -1,6 +1,7 @@
 package barbearia_api.service;
 
 import barbearia_api.entity.Barbeiro;
+import barbearia_api.exception.ResourceNotFoundException;
 import barbearia_api.repository.BarbeiroRepository;
 import org.springframework.stereotype.Service;
 
@@ -24,11 +25,14 @@ public class BarbeiroService {
 
   public Barbeiro buscarPorId(Long id){
     return repository.findById(id)
-            .orElseThrow(()-> new RuntimeException("Barbeiro não encontrado!"));
+            .orElseThrow(()-> new ResourceNotFoundException("Barbeiro", id));
   }
 
   public void deletar(Long id) {
-    repository.deleteById(id);
+    Barbeiro barbeiro = repository.findById(id)
+            .orElseThrow(()-> new ResourceNotFoundException("Barbeiro", id));
+
+    repository.delete(barbeiro);
   }
 
 }
