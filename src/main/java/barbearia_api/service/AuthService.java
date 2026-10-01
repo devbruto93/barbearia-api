@@ -38,6 +38,12 @@ public class AuthService {
         this.expiration = expiration;
     }
 
+    /**
+     * O role e fixado em CLIENTE e nunca lido do corpo da requisicao.
+     *
+     * Aceitar o role do cliente permitiria que qualquer um se cadastrasse como
+     * ADMIN, entao a promocao a admin tem que ser um fluxo separado e protegido.
+     */
     public TokenResponseDTO cadastrar(CadastroDTO dto) {
         if (repository.findByEmail(dto.email()).isPresent()) {
             throw new EmailJaCadastradoException();
