@@ -14,13 +14,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Traduz "autenticado, mas sem permissao" em 403 com corpo JSON.
- *
- * Diferente do 401: aqui o cliente provou quem e, e mesmo assim nao pode fazer
- * a operacao. A API precisa distinguir os dois, porque o front-end reage de
- * formas diferentes a cada um.
- */
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;

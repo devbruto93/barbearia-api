@@ -18,11 +18,6 @@ public class CorsConfig {
         this.allowedOrigins = allowedOrigins;
     }
 
-    /**
-     * CORS nao e protecao: e uma regra do navegador que decide quais chamadas
-     * de outra origem chegam ao servidor. Sem esta configuracao, o front-end
-     * que voce pretende construir sera bloqueado antes mesmo de falar com a API.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

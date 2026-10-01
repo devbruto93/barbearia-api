@@ -14,12 +14,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Traduz "sem credencial valida" em uma resposta HTTP 401 com corpo JSON.
- *
- * Sem isso, o Spring responde 403 com pagina HTML de erro do container, o que
- * quebra qualquer cliente que espera JSON.
- */
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;

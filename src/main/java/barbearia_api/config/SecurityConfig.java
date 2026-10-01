@@ -18,13 +18,6 @@ import barbearia_api.security.JwtAuthenticationFilter;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Define a cadeia de filtros de seguranca da API.
- *
- * Enquanto nenhum bean {@link SecurityFilterChain} existir, o Spring Boot aplica
- * uma configuracao padrao que protege TODOS os endpoints com HTTP Basic e senha
- * gerada no console. Esse e o oposto do que uma API stateless com JWT precisa.
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -69,11 +62,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /**
-     * O fluxo de login fica explicito aqui: o DaoAuthenticationProvider busca o
-     * usuario pelo email e compara a senha com o BCrypt. O ProviderManager e so
-     * o delegador que chama o provider e traduz o resultado em-sucesso ou excecao.
-     */
     @Bean
     public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
             PasswordEncoder passwordEncoder) {

@@ -21,11 +21,7 @@ public class JwtService {
     private final SecretKey key;
     private final long expiration;
 
-    /**
-     * A chave e derivada uma unica vez, na construcao. Se o segredo for curto
-     * demais, o WeakKeyException estoura aqui e a aplicacao nem sobe, em vez de
-     * falhar no meio de uma requisição.
-     */
+  
     public JwtService(@Value("${api.security.jwt.secret}") String secret,
             @Value("${api.security.jwt.expiration}") long expiration) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));

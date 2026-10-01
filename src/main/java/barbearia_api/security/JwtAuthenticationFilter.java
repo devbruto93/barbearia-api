@@ -53,8 +53,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 context.setAuthentication(authentication);
                 SecurityContextHolder.setContext(context);
             } catch (UsernameNotFoundException e) {
-                // Token criptograficamente valido, mas o usuario foi removido do banco.
-                // Deixa seguir sem autenticacao: o AuthorizationFilter responde 401.
                 SecurityContextHolder.clearContext();
             }
         }
