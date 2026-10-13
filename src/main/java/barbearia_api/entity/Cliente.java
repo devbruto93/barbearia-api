@@ -1,4 +1,7 @@
 package barbearia_api.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -12,8 +15,13 @@ public class Cliente {
   @Column(nullable = false)
   private String nome;
 
-  @Column(nullable = false, unique = true)
+  @Column(unique = true)
   private String telefone;
+
+  @JsonIgnore
+  @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+  @JoinColumn(name = "usuario_id", unique = true)
+  private Usuario usuario;
 
   public Cliente(){
   }
@@ -43,6 +51,14 @@ public class Cliente {
   }
   public void setTelefone(String telefone){
     this.telefone = telefone;
+  }
+
+  @JsonIgnore
+  public Usuario getUsuario(){
+    return usuario;
+  }
+  public void setUsuario(Usuario usuario){
+    this.usuario = usuario;
   }
 
 }

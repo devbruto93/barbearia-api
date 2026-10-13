@@ -19,6 +19,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
 import barbearia_api.entity.Cliente;
+import barbearia_api.entity.Role;
+import barbearia_api.entity.Usuario;
 import barbearia_api.repository.ClienteRepository;
 import barbearia_api.repository.UsuarioRepository;
 
@@ -44,7 +46,7 @@ class RecursoErrorTest {
     void preparar() throws Exception {
         repository.deleteAll();
         usuarioRepository.deleteAll();
-        token = cadastrarCliente();
+        token = cadastrarAdmin();
     }
 
     @Test
@@ -93,13 +95,24 @@ class RecursoErrorTest {
                 .andExpect(status().isNoContent());
     }
 
-    private String cadastrarCliente() throws Exception {
-        MvcResult result = mockMvc.perform(post("/auth/cadastro")
+    private String cadastrarAdmin() throws Exception {
+        mockMvc.perform(post("/auth/cadastro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {"email":"erro@email.com","senha":"senha123","nome":"Teste"}
                             """))
-                .andExpect(status().isCreated())
+                .andExpect(status().isCreated());
+
+        Usuario admin = usuarioRepository.findByEmail("erro@email.com").orElseThrow();
+        admin.setRole(Role.ADMIN);
+        usuarioRepository.save(admin);
+
+        MvcResult result = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"email":"erro@email.com","senha":"senha123"}
+                            """))
+                .andExpect(status().isOk())
                 .andReturn();
 
         return objectMapper.readTree(result.getResponse().getContentAsString())

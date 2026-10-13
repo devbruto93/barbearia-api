@@ -1,7 +1,9 @@
 package barbearia_api;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -19,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import barbearia_api.entity.Role;
 import barbearia_api.entity.Usuario;
+import barbearia_api.repository.ClienteRepository;
 import barbearia_api.repository.UsuarioRepository;
 
 /**
@@ -38,10 +42,17 @@ class AuthFlowTest {
     private UsuarioRepository repository;
 
     @Autowired
+    private ClienteRepository clienteRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void limparBase() {
+        clienteRepository.deleteAll();
         repository.deleteAll();
     }
 
@@ -156,12 +167,121 @@ class AuthFlowTest {
     }
 
     @Test
-    @DisplayName("cliente autenticado acessa /clientes com 200")
-    void clienteAcessaClientes() throws Exception {
+    @DisplayName("cadastro cria o cliente ligado ao usuario")
+    void cadastroCriaClienteLigadoAoUsuario() throws Exception {
+        String token = cadastrar("joao@email.com");
+
+        mockMvc.perform(get("/clientes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Teste"))
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.usuario").doesNotExist())
+                .andExpect(jsonPath("$.senha").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("cliente atualiza apenas o proprio cadastro")
+    void clienteAtualizaOProprioCadastro() throws Exception {
+        String token = cadastrar("joao@email.com");
+
+        mockMvc.perform(put("/clientes/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Joao Atualizado","telefone":"11988887777"}
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Joao Atualizado"))
+                .andExpect(jsonPath("$.telefone").value("11988887777"))
+                .andExpect(jsonPath("$.usuario").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("telefone invalido no perfil devolve 400")
+    void telefoneInvalidoNoPerfilDevolve400() throws Exception {
+        String token = cadastrar("joao@email.com");
+
+        mockMvc.perform(put("/clientes/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Joao Silva","telefone":"123"}
+                            """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.telefone")
+                        .value("Telefone deve conter 10 ou 11 números"));
+    }
+
+    @Test
+    @DisplayName("cliente autenticado recebe 403 ao listar todos os clientes")
+    void clienteNaoListaTodosOsClientes() throws Exception {
         String token = cadastrar("joao@email.com");
 
         mockMvc.perform(get("/clientes").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Forbidden"));
+    }
+
+    @Test
+    @DisplayName("cliente nao le, altera nem apaga cadastro por id")
+    void clienteNaoMexeEmCadastroPorId() throws Exception {
+        String tokenJoao = cadastrar("joao@email.com");
+        cadastrar("maria@email.com");
+
+        Long idMaria = clienteRepository.findByUsuarioEmail("maria@email.com").orElseThrow().getId();
+        Long idJoao = clienteRepository.findByUsuarioEmail("joao@email.com").orElseThrow().getId();
+
+        mockMvc.perform(get("/clientes/" + idMaria).header("Authorization", "Bearer " + tokenJoao))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/clientes/" + idJoao)
+                        .header("Authorization", "Bearer " + tokenJoao)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Joao Invasor","telefone":"11988887777"}
+                            """))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/clientes/" + idMaria).header("Authorization", "Bearer " + tokenJoao))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("usuario sem cliente recebe 404 em /clientes/me")
+    void usuarioSemClienteRecebe404() throws Exception {
+        Usuario usuario = new Usuario();
+        usuario.setEmail("semcliente@email.com");
+        usuario.setSenha(passwordEncoder.encode("senha123"));
+        usuario.setRole(Role.CLIENTE);
+        repository.save(usuario);
+
+        String token = login("semcliente@email.com", "senha123");
+
+        mockMvc.perform(get("/clientes/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message")
+                        .value("Cliente nao encontrado para o usuario autenticado."));
+    }
+
+    @Test
+    @DisplayName("deletar cliente apaga o usuario vinculado")
+    void deletarClienteApagaOUsuario() throws Exception {
+        cadastrar("joao@email.com");
+        String token = promoverAdmin("admin@email.com");
+        Long idJoao = clienteRepository.findByUsuarioEmail("joao@email.com").orElseThrow().getId();
+
+        mockMvc.perform(delete("/clientes/" + idJoao).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        org.assertj.core.api.Assertions.assertThat(repository.findByEmail("joao@email.com"))
+                .isEmpty();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"email":"joao@email.com","senha":"senha123"}
+                            """))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -177,16 +297,34 @@ class AuthFlowTest {
     @Test
     @DisplayName("admin promoted no banco acessa /barbeiros com 200")
     void adminAcessaBarbeiros() throws Exception {
-        cadastrar("admin@email.com");
-
-        Usuario admin = repository.findByEmail("admin@email.com").orElseThrow();
-        admin.setRole(Role.ADMIN);
-        repository.save(admin);
-
-        String token = login("admin@email.com", "senha123");
+        String token = promoverAdmin("admin@email.com");
 
         mockMvc.perform(get("/barbeiros").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("admin lista e atualiza clientes")
+    void adminGerenciaClientes() throws Exception {
+        cadastrar("joao@email.com");
+        String token = promoverAdmin("admin@email.com");
+        Long idJoao = clienteRepository.findByUsuarioEmail("joao@email.com").orElseThrow().getId();
+
+        mockMvc.perform(get("/clientes").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].usuario").doesNotExist())
+                .andExpect(jsonPath("$[0].senha").doesNotExist());
+
+        mockMvc.perform(put("/clientes/" + idJoao)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Joao pelo Admin","telefone":"11977776666"}
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Joao pelo Admin"))
+                .andExpect(jsonPath("$.telefone").value("11977776666"))
+                .andExpect(jsonPath("$.usuario").doesNotExist());
     }
 
     @Test
@@ -215,6 +353,16 @@ class AuthFlowTest {
                 .andReturn();
 
         return lerToken(result);
+    }
+
+    private String promoverAdmin(String email) throws Exception {
+        cadastrar(email);
+
+        Usuario admin = repository.findByEmail(email).orElseThrow();
+        admin.setRole(Role.ADMIN);
+        repository.save(admin);
+
+        return login(email, "senha123");
     }
 
     private String login(String email, String senha) throws Exception {

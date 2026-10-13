@@ -56,7 +56,10 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.sameOrigin()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
-                .requestMatchers("/clientes/**").hasRole("CLIENTE")
+                // A primeira regra que casa ganha. /clientes/me precisa vir
+                // antes de /clientes/**, senao o cliente cairia na regra de admin.
+                .requestMatchers("/clientes/me").hasRole("CLIENTE")
+                .requestMatchers("/clientes/**").hasRole("ADMIN")
                 .requestMatchers("/barbeiros/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
