@@ -1,9 +1,12 @@
 package barbearia_api.service;
 
 import java.util.List;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import barbearia_api.dto.AgendamentoDTO;
 import barbearia_api.dto.AgendamentoResponseDTO;
@@ -25,13 +28,19 @@ public class AgendamentoService {
   private final AgendamentoRepository repository;
   private final ClienteRepository clienteRepository;
   private final BarbeiroRepository barbeiroRepository;
+  private final long duracaoAgendamentoMinutos;
 
   public AgendamentoService(AgendamentoRepository repository,
       ClienteRepository clienteRepository,
-      BarbeiroRepository barbeiroRepository) {
+      BarbeiroRepository barbeiroRepository,
+      @Value("${api.agendamento.duracao-minutos:30}") long duracaoAgendamentoMinutos) {
     this.repository = repository;
     this.clienteRepository = clienteRepository;
     this.barbeiroRepository = barbeiroRepository;
+    if (duracaoAgendamentoMinutos <= 0) {
+      throw new IllegalArgumentException("A duracao do agendamento deve ser positiva.");
+    }
+    this.duracaoAgendamentoMinutos = duracaoAgendamentoMinutos;
   }
 
   @Transactional
@@ -41,8 +50,11 @@ public class AgendamentoService {
     Barbeiro barbeiro = barbeiroRepository.findById(dto.barbeiroId())
         .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
 
-    if (repository.existsByBarbeiroIdAndDataHoraAndStatusNot(
-        barbeiro.getId(), dto.dataHora(), StatusAgendamento.CANCELADO)) {
+    LocalDateTime inicio = dto.dataHora();
+    LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));
+    if (repository.existsByBarbeiroIdAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
+        barbeiro.getId(), fim, inicio.minus(Duration.ofMinutes(duracaoAgendamentoMinutos)),
+        StatusAgendamento.CANCELADO)) {
       throw new HorarioIndisponivelException();
     }
 

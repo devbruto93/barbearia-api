@@ -17,10 +17,11 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     List<Agendamento> findAllByOrderByDataHoraDesc();
 
     /**
-     * Verifica se o barbeiro ja tem um horario ocupado no mesmo instante.
-     * Agendamentos CANCELADOS sao ignorados, porque o cancelamento devolve
-     * o horario para a agenda.
+     * Verifica sobreposicao com um intervalo [inicio, fim). Agendamentos
+     * CANCELADOS nao ocupam horario; dois atendimentos consecutivos podem
+     * comecar exatamente quando o anterior termina.
      */
-    boolean existsByBarbeiroIdAndDataHoraAndStatusNot(
-            Long barbeiroId, LocalDateTime dataHora, StatusAgendamento status);
+    boolean existsByBarbeiroIdAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
+            Long barbeiroId, LocalDateTime fim, LocalDateTime inicio,
+            StatusAgendamento status);
 }
