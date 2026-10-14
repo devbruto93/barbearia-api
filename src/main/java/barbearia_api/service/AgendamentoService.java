@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import barbearia_api.dto.AgendamentoDTO;
 import barbearia_api.dto.AgendamentoResponseDTO;
+import barbearia_api.config.ExpedienteConfig;
 import barbearia_api.entity.Agendamento;
 import barbearia_api.entity.Barbeiro;
 import barbearia_api.entity.Cliente;
@@ -28,15 +29,18 @@ public class AgendamentoService {
   private final AgendamentoRepository repository;
   private final ClienteRepository clienteRepository;
   private final BarbeiroRepository barbeiroRepository;
+  private final ExpedienteConfig expedienteConfig;
   private final long duracaoAgendamentoMinutos;
 
   public AgendamentoService(AgendamentoRepository repository,
       ClienteRepository clienteRepository,
       BarbeiroRepository barbeiroRepository,
+      ExpedienteConfig expedienteConfig,
       @Value("${api.agendamento.duracao-minutos:30}") long duracaoAgendamentoMinutos) {
     this.repository = repository;
     this.clienteRepository = clienteRepository;
     this.barbeiroRepository = barbeiroRepository;
+    this.expedienteConfig = expedienteConfig;
     if (duracaoAgendamentoMinutos <= 0) {
       throw new IllegalArgumentException("A duracao do agendamento deve ser positiva.");
     }
@@ -52,6 +56,10 @@ public class AgendamentoService {
 
     LocalDateTime inicio = dto.dataHora();
     LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));
+    if (!expedienteConfig.permite(inicio, duracaoAgendamentoMinutos)) {
+      throw new HorarioIndisponivelException(
+          "O horario solicitado esta fora do expediente da barbearia.");
+    }
     if (repository.existsByBarbeiroIdAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
         barbeiro.getId(), fim, inicio.minus(Duration.ofMinutes(duracaoAgendamentoMinutos)),
         StatusAgendamento.CANCELADO)) {
