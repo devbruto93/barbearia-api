@@ -2,6 +2,7 @@ package barbearia_api.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -61,6 +62,13 @@ public class SecurityConfig {
                 .requestMatchers("/clientes/me").hasRole("CLIENTE")
                 .requestMatchers("/clientes/**").hasRole("ADMIN")
                 .requestMatchers("/barbeiros/**").hasRole("ADMIN")
+                // A agenda tem donos diferentes por operacao: o cliente cria e
+                // enxerga a propria; o admin ve tudo. /agendamentos/me precisa
+                // vir antes do curinga, senao cai na regra de admin.
+                .requestMatchers(HttpMethod.GET, "/agendamentos/me").hasRole("CLIENTE")
+                .requestMatchers(HttpMethod.POST, "/agendamentos").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/cancelar").authenticated()
+                .requestMatchers("/agendamentos/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

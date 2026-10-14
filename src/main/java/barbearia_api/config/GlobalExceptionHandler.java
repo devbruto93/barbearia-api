@@ -14,8 +14,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import barbearia_api.exception.AcessoNegadoException;
 import barbearia_api.exception.CredenciaisInvalidasException;
 import barbearia_api.exception.EmailJaCadastradoException;
+import barbearia_api.exception.HorarioIndisponivelException;
+import barbearia_api.exception.OperacaoInvalidaException;
 import barbearia_api.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -46,6 +49,32 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> naoEncontrado(
             ResourceNotFoundException e, HttpServletRequest request) {
         return resposta(HttpStatus.NOT_FOUND, "Not Found", e.getMessage(), request);
+    }
+
+    /**
+     * Usuario autenticado mexendo em recurso de outro. 403 e nao 404: o
+     * recurso existe, o que falta e permissao.
+     */
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ResponseEntity<Map<String, Object>> acessoNegado(
+            AcessoNegadoException e, HttpServletRequest request) {
+        return resposta(HttpStatus.FORBIDDEN, "Forbidden", e.getMessage(), request);
+    }
+
+    /**
+     * Horario ja reservado para o mesmo barbeiro. 409 Conflict expressa a
+     * disputa pelo recurso melhor do que um 400 de validacao.
+     */
+    @ExceptionHandler(HorarioIndisponivelException.class)
+    public ResponseEntity<Map<String, Object>> horarioIndisponivel(
+            HorarioIndisponivelException e, HttpServletRequest request) {
+        return resposta(HttpStatus.CONFLICT, "Conflict", e.getMessage(), request);
+    }
+
+    @ExceptionHandler(OperacaoInvalidaException.class)
+    public ResponseEntity<Map<String, Object>> operacaoInvalida(
+            OperacaoInvalidaException e, HttpServletRequest request) {
+        return resposta(HttpStatus.CONFLICT, "Conflict", e.getMessage(), request);
     }
 
     /**
