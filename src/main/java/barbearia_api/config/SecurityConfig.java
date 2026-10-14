@@ -68,7 +68,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/agendamentos/me").hasRole("CLIENTE")
                 .requestMatchers(HttpMethod.POST, "/agendamentos").authenticated()
                 .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/cancelar").authenticated()
-                .requestMatchers("/agendamentos/**").hasRole("ADMIN")
+                // Enumerar operações administrativas por método torna o controle
+                // independente de mudanças no padrão de correspondência de rotas.
+                .requestMatchers(HttpMethod.GET, "/agendamentos", "/agendamentos/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/concluir").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

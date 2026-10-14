@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import barbearia_api.dto.BarbeiroDTO;
+import barbearia_api.dto.BarbeiroResponseDTO;
 
 import java.util.List;
 
@@ -20,7 +21,7 @@ public class BarbeiroController {
 	}
 
 	@PostMapping
-	public Barbeiro cadastrar(
+	public BarbeiroResponseDTO cadastrar(
 		@Valid @RequestBody BarbeiroDTO dto){
 
 		Barbeiro barbeiro = new Barbeiro();
@@ -28,17 +29,17 @@ public class BarbeiroController {
 		barbeiro.setTelefone(dto.getTelefone());
 		barbeiro.setEspecialidade(dto.getEspecialidade());
 
-		return service.salvar(barbeiro);
+		return BarbeiroResponseDTO.de(service.salvar(barbeiro));
 	}
 
 	@GetMapping
-	public List<Barbeiro> listarTodos(){
-		return service.listarTodos();
+	public List<BarbeiroResponseDTO> listarTodos(){
+		return service.listarTodos().stream().map(BarbeiroResponseDTO::de).toList();
 	}
 
 	@GetMapping("/{id}")
-	public Barbeiro buscarPorId(@PathVariable Long id){
-		return service.buscarPorId(id);
+	public BarbeiroResponseDTO buscarPorId(@PathVariable Long id){
+		return BarbeiroResponseDTO.de(service.buscarPorId(id));
 	}
 
 	@DeleteMapping("/{id}")

@@ -195,6 +195,21 @@ class AgendamentoFlowTest {
     }
 
     @Test
+    @DisplayName("cliente nao consulta agendamento individual de outro usuario")
+    void clienteNaoConsultaAgendamentoPorIdDeOutro() throws Exception {
+        Barbeiro barbeiro = criarBarbeiro();
+        String tokenJoao = cadastrar("joao@email.com");
+        String tokenMaria = cadastrar("maria@email.com");
+        Long id = extrairId(criarAgendamento(tokenJoao, """
+            {"barbeiroId":%d,"dataHora":"2030-01-01T10:00:00"}
+            """.formatted(barbeiro.getId())));
+
+        mockMvc.perform(get("/agendamentos/" + id)
+                        .header("Authorization", "Bearer " + tokenMaria))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("cliente nao cancela agendamento de outro")
     void clienteNaoCancelaDeOutro() throws Exception {
         Barbeiro barbeiro = criarBarbeiro();
