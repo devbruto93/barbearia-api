@@ -74,7 +74,7 @@ export BOOTSTRAP_ADMIN_PASSWORD='uma-senha-inicial-longa-e-unica'
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
 ```
 
-Depois, autentique em `POST /auth/login` com essas credenciais. O administrador pode criar, consultar, editar e remover clientes e barbeiros.
+Depois, autentique em `POST /auth/login` com essas credenciais. O administrador pode consultar, editar e remover clientes; criar, consultar, editar e remover barbeiros; e realocar agendamentos ainda ativos com `PUT /agendamentos/{id}`, informando `clienteId`, `barbeiroId` e `dataHora`. A realocação mantém as validações de expediente, conflito de horário e vínculo do cliente a uma conta. Novos clientes entram por `POST /auth/cadastro`, que cria a conta e o cadastro de cliente vinculados na mesma operação; não há criação manual de cliente sem usuário.
 
 ## Ideias para continuar
 

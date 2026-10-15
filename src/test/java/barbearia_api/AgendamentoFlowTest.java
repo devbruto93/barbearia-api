@@ -3,6 +3,7 @@ package barbearia_api;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
 import barbearia_api.entity.Barbeiro;
+import barbearia_api.entity.Cliente;
 import barbearia_api.entity.Role;
 import barbearia_api.entity.Usuario;
 import barbearia_api.repository.AgendamentoRepository;
@@ -302,6 +304,62 @@ class AgendamentoFlowTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.clienteId").value(clienteId))
                 .andExpect(jsonPath("$.clienteNome").value("Teste"));
+    }
+
+    @Test
+    @DisplayName("admin nao agenda para cadastro de cliente sem usuario")
+    void adminNaoAgendaParaClienteSemUsuario() throws Exception {
+        Barbeiro barbeiro = criarBarbeiro();
+        Cliente clienteSemUsuario = new Cliente();
+        clienteSemUsuario.setNome("Sem conta");
+        clienteSemUsuario = clienteRepository.save(clienteSemUsuario);
+        String tokenAdmin = promoverAdmin("admin@email.com");
+
+        mockMvc.perform(post("/agendamentos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"barbeiroId":%d,"dataHora":"2030-01-01T10:00:00","clienteId":%d}
+                            """.formatted(barbeiro.getId(), clienteSemUsuario.getId())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("O cliente precisa estar vinculado a um usuario para receber agendamentos."));
+    }
+
+    @Test
+    @DisplayName("admin realoca agendamento para outro cliente barbeiro e horario")
+    void adminRealocaAgendamento() throws Exception {
+        Barbeiro barbeiroOriginal = criarBarbeiro();
+        Barbeiro novoBarbeiro = barbeiroRepository.save(
+                new Barbeiro(null, "Marcos", "11988887777", "Barba"));
+        String tokenJoao = cadastrar("joao@email.com");
+        String tokenMaria = cadastrar("maria@email.com");
+        Long novoClienteId = clienteRepository.findByUsuarioEmail("maria@email.com")
+                .orElseThrow().getId();
+        Long agendamentoId = extrairId(criarAgendamento(tokenJoao, """
+            {"barbeiroId":%d,"dataHora":"2030-01-01T10:00:00"}
+            """.formatted(barbeiroOriginal.getId())));
+        String corpo = """
+            {"barbeiroId":%d,"dataHora":"2030-01-01T11:00:00","clienteId":%d}
+            """.formatted(novoBarbeiro.getId(), novoClienteId);
+
+        mockMvc.perform(put("/agendamentos/" + agendamentoId)
+                        .header("Authorization", "Bearer " + tokenMaria)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isForbidden());
+
+        String tokenAdmin = promoverAdmin("admin@email.com");
+        mockMvc.perform(put("/agendamentos/" + agendamentoId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clienteId").value(novoClienteId))
+                .andExpect(jsonPath("$.clienteNome").value("Teste"))
+                .andExpect(jsonPath("$.barbeiroId").value(novoBarbeiro.getId()))
+                .andExpect(jsonPath("$.barbeiroNome").value("Marcos"))
+                .andExpect(jsonPath("$.dataHora").value("2030-01-01T11:00:00"));
     }
 
     private Barbeiro criarBarbeiro() {

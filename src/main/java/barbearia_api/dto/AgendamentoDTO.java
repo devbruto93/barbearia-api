@@ -6,12 +6,13 @@ import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * Corpo de criacao de um agendamento.
+ * Corpo de criacao ou realocacao de um agendamento.
  *
  * clienteId e opcional e so tem efeito quando quem chama e ADMIN, permitindo
  * agendar em nome de um cliente. Um CLIENTE autenticado sempre agenda para si
  * mesmo, mesmo que envie este campo: o servidor ignora o valor e usa o cliente
- * ligado ao token, para que ninguem agende no nome de outra pessoa.
+ * ligado ao token, para que ninguem agende no nome de outra pessoa. Na
+ * realocacao, operacao exclusiva do ADMIN, clienteId precisa ser informado.
  */
 public record AgendamentoDTO(
 

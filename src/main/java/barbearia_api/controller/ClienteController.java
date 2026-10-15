@@ -22,17 +22,6 @@ public class ClienteController {
 		this.service = service;
 	}
 
-	@PostMapping
-	public ClienteResponseDTO cadastrar(
-		@Valid @RequestBody ClienteDTO dto){
-
-		Cliente cliente = new Cliente();
-		cliente.setNome(dto.getNome());
-		cliente.setTelefone(dto.getTelefone());
-
-		return ClienteResponseDTO.de(service.salvar(cliente));
-	}
-
 	@GetMapping("/me")
 	public ClienteResponseDTO meuPerfil(@AuthenticationPrincipal UserDetails usuario){
 		return ClienteResponseDTO.de(service.buscarPorEmailDoUsuario(usuario.getUsername()));

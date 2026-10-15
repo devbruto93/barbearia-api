@@ -6,7 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>4.0.6</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/> <!-- Busca o projeto pai nos repositorios configurados. -->
 	</parent>
 	<groupId>com.devbruto93</groupId>
 	<artifactId>barbearia-api</artifactId>

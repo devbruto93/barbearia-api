@@ -66,14 +66,19 @@ class RecursoErrorTest {
     }
 
     @Test
-    @DisplayName("telefone repetido devolve 409 em vez de 500")
+    @DisplayName("telefone repetido ao editar devolve 409 em vez de 500")
     void telefoneRepetidoDevolve409() throws Exception {
         Cliente cliente = new Cliente();
         cliente.setNome("Fulano");
         cliente.setTelefone("11988887777");
         repository.save(cliente);
 
-        mockMvc.perform(post("/clientes")
+        Cliente outroCliente = new Cliente();
+        outroCliente.setNome("Outro");
+        outroCliente = repository.save(outroCliente);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                        "/clientes/" + outroCliente.getId())
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

@@ -1,5 +1,7 @@
 package barbearia_api.config;
 
+import java.util.Locale;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +13,7 @@ import barbearia_api.entity.Role;
 import barbearia_api.entity.Usuario;
 import barbearia_api.repository.UsuarioRepository;
 
-/** Creates the first administrator only when explicit bootstrap credentials are configured. */
+/** Cria o primeiro administrador somente quando credenciais iniciais sao configuradas. */
 @Configuration
 public class AdminBootstrapConfig {
 
@@ -36,7 +38,7 @@ public class AdminBootstrapConfig {
                     + "a senha inicial deve ter pelo menos 12 caracteres.");
         }
 
-        String emailNormalizado = email.trim().toLowerCase();
+        String emailNormalizado = email.trim().toLowerCase(Locale.ROOT);
         var existente = usuarios.findByEmail(emailNormalizado);
         if (existente.isPresent()) {
             if (existente.get().getRole() != Role.ADMIN) {

@@ -99,6 +99,40 @@ public class AgendamentoService {
   }
 
   @Transactional
+  public AgendamentoResponseDTO realocar(Long id, AgendamentoDTO dto) {
+    Agendamento agendamento = buscarEntidade(id);
+    if (agendamento.getStatus() != StatusAgendamento.AGENDADO) {
+      throw new OperacaoInvalidaException(
+          "Apenas agendamentos com status AGENDADO podem ser realocados.");
+    }
+    if (dto.clienteId() == null) {
+      throw new OperacaoInvalidaException(
+          "clienteId e obrigatorio para realocar um agendamento.");
+    }
+
+    Cliente cliente = resolverCliente(dto.clienteId(), null, true);
+    Barbeiro barbeiro = barbeiroRepository.findById(dto.barbeiroId())
+        .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
+    LocalDateTime inicio = dto.dataHora();
+    LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));
+    if (!expedienteConfig.permite(inicio, duracaoAgendamentoMinutos)) {
+      throw new HorarioIndisponivelException(
+          "O horario solicitado esta fora do expediente da barbearia.");
+    }
+    if (repository.existsByBarbeiroIdAndIdNotAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
+        barbeiro.getId(), id, fim,
+        inicio.minus(Duration.ofMinutes(duracaoAgendamentoMinutos)),
+        StatusAgendamento.CANCELADO)) {
+      throw new HorarioIndisponivelException();
+    }
+
+    agendamento.setCliente(cliente);
+    agendamento.setBarbeiro(barbeiro);
+    agendamento.setDataHora(inicio);
+    return paraResposta(repository.save(agendamento));
+  }
+
+  @Transactional
   public AgendamentoResponseDTO cancelar(Long id, String emailAutenticado, boolean admin) {
     Agendamento agendamento = buscarEntidade(id);
 
@@ -135,8 +169,13 @@ public class AgendamentoService {
    */
   private Cliente resolverCliente(Long clienteId, String emailAutenticado, boolean admin) {
     if (admin && clienteId != null) {
-      return clienteRepository.findById(clienteId)
+      Cliente cliente = clienteRepository.findById(clienteId)
           .orElseThrow(() -> new ResourceNotFoundException("Cliente", clienteId));
+      if (cliente.getUsuario() == null) {
+        throw new OperacaoInvalidaException(
+            "O cliente precisa estar vinculado a um usuario para receber agendamentos.");
+      }
+      return cliente;
     }
     return buscarClientePorEmail(emailAutenticado);
   }

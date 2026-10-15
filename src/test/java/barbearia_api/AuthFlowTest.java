@@ -22,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import barbearia_api.entity.Role;
 import barbearia_api.entity.Usuario;
+import barbearia_api.repository.BarbeiroRepository;
 import barbearia_api.repository.ClienteRepository;
 import barbearia_api.repository.UsuarioRepository;
 
@@ -45,6 +46,9 @@ class AuthFlowTest {
     private ClienteRepository clienteRepository;
 
     @Autowired
+    private BarbeiroRepository barbeiroRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -53,6 +57,7 @@ class AuthFlowTest {
     @BeforeEach
     void limparBase() {
         clienteRepository.deleteAll();
+        barbeiroRepository.deleteAll();
         repository.deleteAll();
     }
 
@@ -292,6 +297,14 @@ class AuthFlowTest {
         mockMvc.perform(get("/barbeiros").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("Forbidden"));
+
+        mockMvc.perform(post("/barbeiros")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Carlos Silva","telefone":"11988887777","especialidade":"Corte"}
+                            """))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -301,6 +314,51 @@ class AuthFlowTest {
 
         mockMvc.perform(get("/barbeiros").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("admin cria e realoca dados de barbeiro")
+    void adminCriaEAtualizaBarbeiro() throws Exception {
+        String token = promoverAdmin("admin@email.com");
+        MvcResult criado = mockMvc.perform(post("/barbeiros")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Carlos Silva","telefone":"11988887777","especialidade":"Corte"}
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Carlos Silva"))
+                .andReturn();
+        Long id = objectMapper.readTree(criado.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(put("/barbeiros/" + id)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Carlos Atualizado","telefone":"11977776666","especialidade":"Barba"}
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Carlos Atualizado"))
+                .andExpect(jsonPath("$.telefone").value("11977776666"))
+                .andExpect(jsonPath("$.especialidade").value("Barba"));
+    }
+
+    @Test
+    @DisplayName("API nao cria cliente sem conta vinculada")
+    void naoCriaClienteSemUsuarioVinculado() throws Exception {
+        String token = promoverAdmin("admin@email.com");
+
+        mockMvc.perform(post("/clientes")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Cliente sem conta","telefone":"11988887777"}
+                            """))
+                .andExpect(status().isMethodNotAllowed());
+
+        org.assertj.core.api.Assertions.assertThat(clienteRepository.findAll())
+                .allSatisfy(cliente -> org.assertj.core.api.Assertions
+                        .assertThat(cliente.getUsuario()).isNotNull());
     }
 
     @Test
