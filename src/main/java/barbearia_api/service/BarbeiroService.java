@@ -28,6 +28,14 @@ public class BarbeiroService {
             .orElseThrow(()-> new ResourceNotFoundException("Barbeiro", id));
   }
 
+  public Barbeiro atualizar(Long id, String nome, String telefone, String especialidade) {
+    Barbeiro barbeiro = buscarPorId(id);
+    barbeiro.setNome(nome);
+    barbeiro.setTelefone(telefone);
+    barbeiro.setEspecialidade(especialidade);
+    return repository.save(barbeiro);
+  }
+
   public void deletar(Long id) {
     Barbeiro barbeiro = repository.findById(id)
             .orElseThrow(()-> new ResourceNotFoundException("Barbeiro", id));

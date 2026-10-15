@@ -62,6 +62,20 @@ export CORS_ALLOWED_ORIGINS='https://seu-frontend.example'
 
 O Flyway registra as versões aplicadas na tabela `flyway_schema_history`. Ao iniciar pela primeira vez um banco vazio, aplica `V1__criar_esquema_inicial.sql`. Essa migração foi feita para uma instalação vazia. Se o banco já tiver tabelas ou dados, faça backup e planeje a adoção do Flyway antes de iniciar a aplicação.
 
+## Primeiro administrador
+
+O cadastro público (`POST /auth/cadastro`) sempre cria um usuário `CLIENTE`. Para criar o primeiro `ADMIN`, configure temporariamente `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` no ambiente em que a aplicação vai iniciar. A senha inicial precisa ter pelo menos 12 caracteres. Se o email ainda não existir, a aplicação cria o administrador com senha BCrypt; se já existir como `ADMIN`, a inicialização é repetível e não altera a senha. Se pertencer a um `CLIENTE`, a aplicação falha ao iniciar para evitar promover uma conta por engano. Use um email exclusivo e remova as variáveis de bootstrap depois da primeira inicialização.
+
+Exemplo:
+
+```sh
+export BOOTSTRAP_ADMIN_EMAIL='admin@seudominio.com'
+export BOOTSTRAP_ADMIN_PASSWORD='uma-senha-inicial-longa-e-unica'
+./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
+```
+
+Depois, autentique em `POST /auth/login` com essas credenciais. O administrador pode criar, consultar, editar e remover clientes e barbeiros.
+
 ## Ideias para continuar
 
 Quero seguir evoluindo o projeto conforme avanço nos estudos. Entre as possibilidades estão criar um frontend e experimentar recursos de IA para apoiar a organização dos agendamentos e consultar informações sobre a frequência dos clientes.

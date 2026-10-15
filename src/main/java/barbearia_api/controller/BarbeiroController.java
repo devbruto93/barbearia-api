@@ -42,6 +42,12 @@ public class BarbeiroController {
 		return BarbeiroResponseDTO.de(service.buscarPorId(id));
 	}
 
+	@PutMapping("/{id}")
+	public BarbeiroResponseDTO atualizar(@PathVariable Long id, @Valid @RequestBody BarbeiroDTO dto){
+		return BarbeiroResponseDTO.de(service.atualizar(
+				id, dto.getNome(), dto.getTelefone(), dto.getEspecialidade()));
+	}
+
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deletar(@PathVariable Long id){
 		service.deletar(id);
