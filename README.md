@@ -30,6 +30,36 @@ Este é um projeto pessoal, criado para consolidar meus estudos de desenvolvimen
 
 Os testes usam um banco H2 em memória separado. Com a aplicação rodando, a documentação da API fica disponível em `/swagger-ui.html`.
 
+## Ambiente local com Docker
+
+Com Docker Engine e o plugin Docker Compose instalados, copie o arquivo de exemplo, defina uma senha e um segredo JWT locais e inicie os serviços:
+
+```sh
+cp .env.example .env
+```
+
+Edite `.env` e substitua `DB_PASSWORD` e `JWT_SECRET`. O segredo JWT deve ter pelo menos 32 caracteres. Depois execute:
+
+```sh
+docker compose up --build
+```
+
+O Compose inicia o PostgreSQL e a API no perfil `prod`. A API aguarda o banco ficar saudável; na primeira inicialização, o Flyway aplica `V1__criar_esquema_inicial.sql`. A API fica em `http://localhost:8080`, e o Swagger em `http://localhost:8080/swagger-ui.html`.
+
+Para parar os serviços, use `Ctrl+C` e depois `docker compose down`. Os dados ficam no volume `postgres-data` e são preservados. Para apagar também o banco local e começar do zero, execute `docker compose down -v`.
+
+Este ambiente é para desenvolvimento local: o Compose usa uma única credencial do PostgreSQL para a aplicação e para as migrações. Não reutilize as credenciais do `.env` em produção.
+
+### Teste automatizado do fluxo no Docker
+
+Com a API e o PostgreSQL iniciados, instale `curl` e `jq` e execute o teste de fumaça:
+
+```sh
+./scripts/smoke-test.sh
+```
+
+O script solicita o email e a senha de uma conta `ADMIN`, sem gravá-los. Também aceita as variáveis `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `API_URL` (padrão: `http://localhost:8080`). Ele cria um cliente e um barbeiro de teste, agenda um atendimento e confirma que o cliente consegue consultá-lo. Os registros ficam no banco para inspeção posterior; cada execução usa dados novos.
+
 ## PostgreSQL e migrações
 
 O esquema é controlado pelo Flyway, com arquivos em `src/main/resources/db/migration`. Cada mudança futura deve entrar em uma nova migração SQL numerada (`V2__...sql`, `V3__...sql` etc.). Depois de aplicada em algum ambiente, uma migração não deve ser editada: crie outra versão.
