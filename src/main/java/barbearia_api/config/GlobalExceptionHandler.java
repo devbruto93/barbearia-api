@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import barbearia_api.exception.AcessoNegadoException;
 import barbearia_api.exception.CredenciaisInvalidasException;
+import barbearia_api.exception.ContaBloqueadaException;
 import barbearia_api.exception.EmailJaCadastradoException;
 import barbearia_api.exception.HorarioIndisponivelException;
 import barbearia_api.exception.OperacaoInvalidaException;
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> credenciaisInvalidas(
             CredenciaisInvalidasException e, HttpServletRequest request) {
         return resposta(HttpStatus.UNAUTHORIZED, "Unauthorized", e.getMessage(), request);
+    }
+
+    @ExceptionHandler(ContaBloqueadaException.class)
+    public ResponseEntity<Map<String, Object>> contaBloqueada(
+            ContaBloqueadaException e, HttpServletRequest request) {
+        return resposta(HttpStatus.LOCKED, "Account Locked", e.getMessage(), request);
     }
 
     @ExceptionHandler(EmailJaCadastradoException.class)

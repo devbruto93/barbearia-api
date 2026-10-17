@@ -104,7 +104,7 @@ class RecursoErrorTest {
         mockMvc.perform(post("/auth/cadastro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"email":"erro@email.com","senha":"senha123","nome":"Teste"}
+                            {"email":"erro@email.com","senha":"Senha@123","nome":"Teste"}
                             """))
                 .andExpect(status().isCreated());
 
@@ -115,7 +115,7 @@ class RecursoErrorTest {
         MvcResult result = mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"email":"erro@email.com","senha":"senha123"}
+                            {"email":"erro@email.com","senha":"Senha@123"}
                             """))
                 .andExpect(status().isOk())
                 .andReturn();

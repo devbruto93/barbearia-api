@@ -17,6 +17,7 @@ import io.jsonwebtoken.security.Keys;
 public class JwtService {
 
     private static final String CLAIM_ROLE = "role";
+    private static final String CLAIM_TOKEN_VERSION = "tokenVersion";
 
     private final SecretKey key;
     private final long expiration;
@@ -33,15 +34,25 @@ public class JwtService {
     }
 
     public String gerarToken(String email, String role) {
+        return gerarToken(email, role, 0L);
+    }
+
+    public String gerarToken(String email, String role, long tokenVersion) {
         Date now = new Date();
 
         return Jwts.builder()
                 .subject(email)
                 .claim(CLAIM_ROLE, role)
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
+    }
+
+    public long extrairVersaoToken(String token) {
+        Long version = parseClaims(token).get(CLAIM_TOKEN_VERSION, Long.class);
+        return version == null ? -1L : version;
     }
 
     public String extrairEmail(String token) {

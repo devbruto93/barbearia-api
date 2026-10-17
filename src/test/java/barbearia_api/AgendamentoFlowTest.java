@@ -385,7 +385,7 @@ class AgendamentoFlowTest {
         MvcResult result = mockMvc.perform(post("/auth/cadastro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"email":"%s","senha":"senha123","nome":"Teste"}
+                            {"email":"%s","senha":"Senha@123","nome":"Teste"}
                             """.formatted(email)))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -400,7 +400,7 @@ class AgendamentoFlowTest {
         admin.setRole(Role.ADMIN);
         usuarioRepository.save(admin);
 
-        return login(email, "senha123");
+        return login(email, "Senha@123");
     }
 
     private String login(String email, String senha) throws Exception {

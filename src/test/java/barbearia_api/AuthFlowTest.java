@@ -67,7 +67,7 @@ class AuthFlowTest {
         mockMvc.perform(post("/auth/cadastro")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"email":"joao@email.com","senha":"senha123","nome":"Joao Silva"}
+                    {"email":"joao@email.com","senha":"Senha@123","nome":"Joao Silva"}
                     """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").isNotEmpty())
@@ -81,7 +81,7 @@ class AuthFlowTest {
         mockMvc.perform(post("/auth/cadastro")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"email":"joao@email.com","senha":"senha123","nome":"Joao Silva"}
+                    {"email":"joao@email.com","senha":"Senha@123","nome":"Joao Silva"}
                     """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.senha").doesNotExist());
@@ -89,7 +89,7 @@ class AuthFlowTest {
         String senhaNoBanco = repository.findByEmail("joao@email.com").orElseThrow().getSenha();
 
         org.assertj.core.api.Assertions.assertThat(senhaNoBanco)
-                .isNotEqualTo("senha123")
+                .isNotEqualTo("Senha@123")
                 .startsWith("$2");
     }
 
@@ -101,7 +101,7 @@ class AuthFlowTest {
         mockMvc.perform(post("/auth/cadastro")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"email":"joao@email.com","senha":"outra123","nome":"Joao"}
+                    {"email":"joao@email.com","senha":"Outra@123","nome":"Joao"}
                     """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Ja existe um usuario cadastrado com este email."));
@@ -117,6 +117,100 @@ class AuthFlowTest {
                 .content("""
                     {"email":"joao@email.com","senha":"errada"}
                     """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("bloqueia a conta na terceira senha incorreta")
+    void bloqueiaNaTerceiraFalha() throws Exception {
+        cadastrar("bloqueio@email.com");
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"email":"bloqueio@email.com","senha":"Errada@123"}
+                        """))
+                    .andExpect(status().isUnauthorized());
+        }
+        org.assertj.core.api.Assertions.assertThat(repository.findByEmail("bloqueio@email.com").orElseThrow()
+                .getTentativasLoginFalhas()).isEqualTo(2);
+        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"bloqueio@email.com","senha":"Errada@123"}
+                    """))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("temporariamente")));
+        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"bloqueio@email.com","senha":"Senha@123"}
+                    """))
+                .andExpect(status().isLocked());
+
+        Usuario bloqueado = repository.findByEmail("bloqueio@email.com").orElseThrow();
+        bloqueado.setLoginBloqueadoAte(java.time.Instant.now().minusSeconds(1));
+        repository.save(bloqueado);
+        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"bloqueio@email.com","senha":"Senha@123"}
+                    """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("senha de cadastro exige tamanho e classes de caracteres")
+    void senhaCadastroExigeComplexidade() throws Exception {
+        mockMvc.perform(post("/auth/cadastro").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"senha@email.com","senha":"simples123","nome":"Teste"}
+                    """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.senha").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("admin desbloqueia conta após confirmação do suporte")
+    void adminPodeDesbloquearConta() throws Exception {
+        cadastrar("cliente-bloqueado@email.com");
+        Usuario cliente = repository.findByEmail("cliente-bloqueado@email.com").orElseThrow();
+        cliente.setLoginBloqueado(true);
+        cliente.setTentativasLoginFalhas(3);
+        repository.save(cliente);
+        String adminToken = promoverAdmin("suporte@email.com");
+
+        mockMvc.perform(post("/auth/admin/desbloqueios").header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"cliente-bloqueado@email.com"}
+                    """))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"email":"cliente-bloqueado@email.com","senha":"Senha@123"}
+                    """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("cliente exporta e exclui seus dados pessoais")
+    void clienteExportaEExcluiDados() throws Exception {
+        String token = cadastrar("titular@email.com");
+        mockMvc.perform(get("/privacidade/me/exportacao").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("titular@email.com"))
+                .andExpect(jsonPath("$.nome").value("Teste"))
+                .andExpect(jsonPath("$.agendamentos").isArray());
+
+        mockMvc.perform(delete("/privacidade/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        org.assertj.core.api.Assertions.assertThat(repository.findByEmail("titular@email.com")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("logout revoga imediatamente os tokens emitidos para a conta")
+    void logoutRevogaTokenAtual() throws Exception {
+        String token = cadastrar("logout@email.com");
+        mockMvc.perform(post("/auth/logout").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/clientes/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -256,11 +350,11 @@ class AuthFlowTest {
     void usuarioSemClienteRecebe404() throws Exception {
         Usuario usuario = new Usuario();
         usuario.setEmail("semcliente@email.com");
-        usuario.setSenha(passwordEncoder.encode("senha123"));
+        usuario.setSenha(passwordEncoder.encode("Senha@123"));
         usuario.setRole(Role.CLIENTE);
         repository.save(usuario);
 
-        String token = login("semcliente@email.com", "senha123");
+        String token = login("semcliente@email.com", "Senha@123");
 
         mockMvc.perform(get("/clientes/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
@@ -284,7 +378,7 @@ class AuthFlowTest {
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"email":"joao@email.com","senha":"senha123"}
+                            {"email":"joao@email.com","senha":"Senha@123"}
                             """))
                 .andExpect(status().isUnauthorized());
     }
@@ -405,7 +499,7 @@ class AuthFlowTest {
         MvcResult result = mockMvc.perform(post("/auth/cadastro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"email":"%s","senha":"senha123","nome":"Teste"}
+                            {"email":"%s","senha":"Senha@123","nome":"Teste"}
                             """.formatted(email)))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -420,7 +514,7 @@ class AuthFlowTest {
         admin.setRole(Role.ADMIN);
         repository.save(admin);
 
-        return login(email, "senha123");
+        return login(email, "Senha@123");
     }
 
     private String login(String email, String senha) throws Exception {

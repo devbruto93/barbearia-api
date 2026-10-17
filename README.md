@@ -50,6 +50,12 @@ Para parar os serviços, use `Ctrl+C` e depois `docker compose down`. Os dados f
 
 Este ambiente é para desenvolvimento local: o Compose usa uma única credencial do PostgreSQL para a aplicação e para as migrações. Não reutilize as credenciais do `.env` em produção.
 
+No Compose local, `TLS_ENABLED=false` mantém a API em HTTP para desenvolvimento. Em produção, use `TLS_ENABLED=true`, configure a senha em `TLS_KEY_STORE_PASSWORD` e monte um keystore PKCS12 válido em `./certs/api.p12` (ou informe o caminho com `TLS_KEY_STORE`). O perfil `prod` ativa TLS por padrão fora do Compose. Não exponha a porta da API em HTTP na implantação.
+
+Os limites de autenticação são por IP e mantidos em memória por processo: login permite 10 requisições por minuto e cadastro 5 a cada 10 minutos. O bloqueio por três senhas incorretas dura 15 minutos por padrão; o valor pode ser alterado por `API_SECURITY_LOGIN_LOCKOUT_MINUTES`. Atrás de proxy, a opção `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` só é segura se o proxy remover o `X-Forwarded-For` enviado pelo cliente e definir esse cabeçalho. Para múltiplas réplicas, use um limitador compartilhado (por exemplo, Redis) antes de escalar horizontalmente.
+
+Clientes autenticados podem consultar `GET /privacidade/aviso`, exportar os dados em `GET /privacidade/me/exportacao` e solicitar exclusão da conta por `DELETE /privacidade/me`. A exclusão apaga a conta, o perfil e os agendamentos associados. O contato exibido no aviso vem de `PRIVACY_CONTACT_EMAIL`. Agendamentos concluídos ou cancelados podem ser removidos automaticamente após `DATA_RETENTION_APPOINTMENTS_DAYS`; o valor `0` desativa essa purga. Defina o prazo conforme a finalidade e obrigações de conservação da barbearia antes de habilitá-la. O aviso da API é um ponto de partida: o controlador ainda precisa informar e validar finalidade, base legal, prazos, compartilhamentos e canal de atendimento aplicáveis ao negócio.
+
 ### Teste automatizado do fluxo no Docker
 
 Com a API e o PostgreSQL iniciados, instale `curl` e `jq` e execute o teste de fumaça:
@@ -105,6 +111,8 @@ export BOOTSTRAP_ADMIN_PASSWORD='uma-senha-inicial-longa-e-unica'
 ```
 
 Depois, autentique em `POST /auth/login` com essas credenciais. O administrador pode consultar, editar e remover clientes; criar, consultar, editar e remover barbeiros; e realocar agendamentos ainda ativos com `PUT /agendamentos/{id}`, informando `clienteId`, `barbeiroId` e `dataHora`. A realocação mantém as validações de expediente, conflito de horário e vínculo do cliente a uma conta. Novos clientes entram por `POST /auth/cadastro`, que cria a conta e o cadastro de cliente vinculados na mesma operação; não há criação manual de cliente sem usuário.
+
+Após três senhas incorretas, o login fica bloqueado por 15 minutos. O prazo expira automaticamente; um administrador autenticado também pode liberar a conta após confirmar a identidade pelo suporte/WhatsApp, usando `POST /auth/admin/desbloqueios` com `{"email":"cliente@exemplo.com"}`. O projeto não integra com a API do WhatsApp.
 
 ## Ideias para continuar
 

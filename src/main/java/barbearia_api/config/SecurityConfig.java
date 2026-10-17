@@ -16,6 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import barbearia_api.security.JwtAuthenticationFilter;
+import barbearia_api.security.AuthRateLimitFilter;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -34,6 +35,7 @@ public class SecurityConfig {
         "/error",
         "/auth/login",
         "/auth/cadastro",
+        "/privacidade/aviso",
         "/swagger-ui.html",
         "/swagger-ui/**",
         "/v3/api-docs/**"
@@ -41,7 +43,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthRateLimitFilter authRateLimitFilter) throws Exception {
 
         http
             .cors(cors -> { })
@@ -57,6 +60,9 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.sameOrigin()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                .requestMatchers(HttpMethod.POST, "/auth/admin/desbloqueios").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
+                .requestMatchers("/privacidade/me/**").hasRole("CLIENTE")
                 // A primeira regra que casa ganha. /clientes/me precisa vir
                 // antes de /clientes/**, senao o cliente cairia na regra de admin.
                 .requestMatchers("/clientes/me").hasRole("CLIENTE")
@@ -75,6 +81,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/concluir").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        http.addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

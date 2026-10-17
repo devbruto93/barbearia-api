@@ -1,6 +1,5 @@
 package barbearia_api.service;
 
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -8,6 +7,8 @@ import org.springframework.stereotype.Service;
 
 import barbearia_api.entity.Usuario;
 import barbearia_api.repository.UsuarioRepository;
+import barbearia_api.security.UsuarioPrincipal;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 /**
  * Carrega o usuario do banco para o Spring Security.
@@ -30,9 +31,8 @@ public class CustomUserDetailsService implements UserDetailsService {
         Usuario usuario = repository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + email));
 
-        return User.withUsername(usuario.getEmail())
-                .password(usuario.getSenha())
-                .roles(usuario.getRole().name())
-                .build();
+        return new UsuarioPrincipal(usuario.getEmail(), usuario.getSenha(),
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRole().name())),
+                usuario.getTokenVersion());
     }
 }

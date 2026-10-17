@@ -5,6 +5,10 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import barbearia_api.entity.Agendamento;
 import barbearia_api.entity.StatusAgendamento;
@@ -28,4 +32,10 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
     boolean existsByBarbeiroIdAndIdNotAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
             Long barbeiroId, Long id, LocalDateTime fim, LocalDateTime inicio,
             StatusAgendamento status);
+
+    @Modifying
+    @Transactional
+    @Query("delete from Agendamento a where a.status in :statuses and a.dataHora < :limite")
+    int removerHistoricoExpirado(@Param("statuses") List<StatusAgendamento> statuses,
+            @Param("limite") LocalDateTime limite);
 }

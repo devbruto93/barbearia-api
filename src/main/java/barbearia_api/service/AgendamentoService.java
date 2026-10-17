@@ -51,7 +51,9 @@ public class AgendamentoService {
   public AgendamentoResponseDTO criar(AgendamentoDTO dto, String emailAutenticado, boolean admin) {
     Cliente cliente = resolverCliente(dto.clienteId(), emailAutenticado, admin);
 
-    Barbeiro barbeiro = barbeiroRepository.findById(dto.barbeiroId())
+    // Serializa reservas do mesmo barbeiro durante a transacao, incluindo
+    // checagem de conflito e INSERT.
+    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
         .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
 
     LocalDateTime inicio = dto.dataHora();
@@ -111,7 +113,7 @@ public class AgendamentoService {
     }
 
     Cliente cliente = resolverCliente(dto.clienteId(), null, true);
-    Barbeiro barbeiro = barbeiroRepository.findById(dto.barbeiroId())
+    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
         .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
     LocalDateTime inicio = dto.dataHora();
     LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));

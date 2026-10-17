@@ -12,7 +12,10 @@ public record CadastroDTO(
     String email,
 
     @NotBlank(message = "Senha e obrigatoria")
-    @Size(min = 6, max = 72, message = "Senha deve ter entre 6 e 72 caracteres")
+    @Size(min = 8, max = 72, message = "Senha deve ter entre 8 e 72 caracteres")
+    @jakarta.validation.constraints.Pattern(
+        regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,72}$",
+        message = "Senha deve conter numero, letra maiuscula, letra minuscula e caractere especial")
     String senha,
 
     @NotBlank(message = "Nome e obrigatorio")

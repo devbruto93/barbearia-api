@@ -4,6 +4,7 @@ import barbearia_api.entity.Cliente;
 import barbearia_api.exception.ResourceNotFoundException;
 import barbearia_api.repository.ClienteRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -53,6 +54,12 @@ public class ClienteService {
     Cliente cliente = repository.findById(id)
             .orElseThrow(()-> new ResourceNotFoundException("Cliente", id));
 
+    repository.delete(cliente);
+  }
+
+  @Transactional
+  public void deletarPorEmailDoUsuario(String email) {
+    Cliente cliente = buscarPorEmailDoUsuario(email);
     repository.delete(cliente);
   }
 
