@@ -10,6 +10,8 @@ import jakarta.persistence.LockModeType;
 @Repository
 public interface BarbeiroRepository extends JpaRepository<Barbeiro, Long> {
 
+    java.util.List<Barbeiro> findByAtivoTrueOrderByNomeAsc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from Barbeiro b where b.id = :id")
     java.util.Optional<Barbeiro> findByIdForUpdate(Long id);

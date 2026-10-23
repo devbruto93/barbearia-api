@@ -67,6 +67,8 @@ public class SecurityConfig {
                 // antes de /clientes/**, senao o cliente cairia na regra de admin.
                 .requestMatchers("/clientes/me").hasRole("CLIENTE")
                 .requestMatchers("/clientes/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/barbeiros", "/barbeiros/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/barbeiros/*/disponibilidade").permitAll()
                 .requestMatchers("/barbeiros/**").hasRole("ADMIN")
                 // A agenda tem donos diferentes por operacao: o cliente cria e
                 // enxerga a propria; o admin ve tudo. /agendamentos/me precisa

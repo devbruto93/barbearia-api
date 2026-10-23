@@ -9,6 +9,10 @@ import barbearia_api.dto.BarbeiroDTO;
 import barbearia_api.dto.BarbeiroResponseDTO;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/barbeiros")
@@ -35,6 +39,12 @@ public class BarbeiroController {
 	@GetMapping
 	public List<BarbeiroResponseDTO> listarTodos(){
 		return service.listarTodos().stream().map(BarbeiroResponseDTO::de).toList();
+	}
+
+	@GetMapping("/{id}/disponibilidade")
+	public List<LocalDateTime> horariosDisponiveis(@PathVariable Long id,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data){
+		return service.horariosDisponiveis(id, data);
 	}
 
 	@GetMapping("/{id}")

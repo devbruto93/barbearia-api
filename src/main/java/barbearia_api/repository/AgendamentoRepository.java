@@ -20,6 +20,8 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, Long> 
 
     List<Agendamento> findAllByOrderByDataHoraDesc();
 
+    boolean existsByBarbeiroIdAndStatus(Long barbeiroId, StatusAgendamento status);
+
     /**
      * Verifica sobreposicao com um intervalo [inicio, fim). Agendamentos
      * CANCELADOS nao ocupam horario; dois atendimentos consecutivos podem
