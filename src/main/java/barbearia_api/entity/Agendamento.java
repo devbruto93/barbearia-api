@@ -16,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "agendamentos")
@@ -24,6 +25,11 @@ public class Agendamento {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  /** Detecta gravacoes concorrentes do mesmo agendamento, alem do lock por barbeiro. */
+  @Version
+  @Column(nullable = false)
+  private long versao;
 
   /**
    * Apagar o cliente apaga seus agendamentos no banco (ON DELETE CASCADE).

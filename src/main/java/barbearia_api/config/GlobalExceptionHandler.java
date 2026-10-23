@@ -7,6 +7,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -93,8 +94,31 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> violacaoDeIntegridade(
             DataIntegrityViolationException e, HttpServletRequest request) {
+        if (sqlState(e, "23P01")) {
+            return resposta(HttpStatus.CONFLICT, "Conflict",
+                    "Este horario acabou de ser ocupado. Atualize a disponibilidade e tente outro horario.",
+                    request);
+        }
         return resposta(HttpStatus.CONFLICT, "Conflict",
                 "Ja existe um registro com esse dado.", request);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> conflitoDeEdicaoConcorrente(
+            OptimisticLockingFailureException e, HttpServletRequest request) {
+        return resposta(HttpStatus.CONFLICT, "Conflict",
+                "Este agendamento foi alterado por outra operacao. Atualize os dados e tente novamente.",
+                request);
+    }
+
+    private boolean sqlState(Throwable erro, String esperado) {
+        Throwable atual = erro;
+        while (atual != null) {
+            if (atual instanceof java.sql.SQLException sql
+                    && esperado.equals(sql.getSQLState())) return true;
+            atual = atual.getCause();
+        }
+        return false;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

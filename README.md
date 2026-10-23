@@ -120,6 +120,10 @@ Um ADMIN pode acrescentar de 1 a 240 minutos a um atendimento ativo com `PATCH /
 
 Os clientes afetados veem o aviso em `GET /agendamentos/me`. Podem aceitar com `PATCH /agendamentos/{id}/alteracao-horario` e `{"decisao":"ACEITAR"}` ou remarcar no mesmo endpoint com `{"decisao":"REMARCAR","barbeiroId":1,"dataHora":"2030-01-01T11:00:00"}`. Se precisarem escolher o novo horário depois, podem enviar inicialmente apenas `{"decisao":"REMARCAR"}` e repetir a chamada com barbeiro e horário escolhidos. A resposta da API inclui `horarioAnterior`, `alteracaoHorarioPendente`, `remarcacaoSolicitada` e `avisoAlteracaoHorario` para a tela apresentar as opções. O aviso é interno à aplicação; o cliente o recebe ao consultar seus agendamentos, pois não há integração de e-mail, WhatsApp ou notificações push.
 
+### Concorrência na agenda
+
+As operações que reservam ou alteram horários bloqueiam os registros dos barbeiros envolvidos, sempre em ordem crescente de ID, durante a transação. Isso serializa operações concorrentes para o mesmo barbeiro e reduz deadlocks ao mover um agendamento entre barbeiros. A entidade `Agendamento` também usa versão otimista para detectar duas alterações concorrentes do mesmo registro. No perfil `prod`, a migração PostgreSQL `V7` instala `btree_gist` e cria uma restrição de exclusão GiST sobre intervalos semiabertos `[início, fim)`, usando a duração do atendimento; assim, o próprio banco rejeita sobreposições de agendamentos `AGENDADO`, mesmo se uma checagem da aplicação for ignorada. Agendamentos consecutivos continuam permitidos. A instalação de `btree_gist` exige que o usuário de migração tenha `CREATE` no banco. A migração falha com uma mensagem clara se o banco já contiver agendamentos ativos sobrepostos; resolva esses conflitos antes de implantá-la. A restrição é específica do PostgreSQL; o perfil local H2 depende dos locks e das checagens da aplicação.
+
 ## Ideias para continuar
 
 Quero seguir evoluindo o projeto conforme avanço nos estudos. Entre as possibilidades estão criar um frontend e experimentar recursos de IA para apoiar a organização dos agendamentos e consultar informações sobre a frequência dos clientes.

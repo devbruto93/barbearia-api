@@ -1,6 +1,8 @@
 package barbearia_api.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 
@@ -55,9 +57,7 @@ public class AgendamentoService {
 
     // Serializa reservas do mesmo barbeiro durante a transacao, incluindo
     // checagem de conflito e INSERT.
-    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
-        .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
-    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", dto.barbeiroId());
+    Barbeiro barbeiro = travarBarbeiros(dto.barbeiroId()).get(dto.barbeiroId());
 
     LocalDateTime inicio = dto.dataHora();
     LocalDateTime fim = inicio.plusMinutes(duracaoAgendamentoMinutos);
@@ -115,9 +115,8 @@ public class AgendamentoService {
     }
 
     Cliente cliente = resolverCliente(dto.clienteId(), null, true);
-    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
-        .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
-    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", dto.barbeiroId());
+    Barbeiro barbeiro = travarBarbeiros(
+        agendamento.getBarbeiro().getId(), dto.barbeiroId()).get(dto.barbeiroId());
     LocalDateTime inicio = dto.dataHora();
     long duracao = agendamento.getDuracaoMinutos();
     if (!expedienteConfig.permite(inicio, duracao)) {
@@ -149,9 +148,7 @@ public class AgendamentoService {
     }
 
     Long barbeiroId = alvo.getBarbeiro().getId();
-    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(barbeiroId)
-        .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", barbeiroId));
-    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", barbeiroId);
+    travarBarbeiros(barbeiroId);
 
     LocalDateTime limiteAntecedencia = LocalDateTime.now().plusHours(2);
     if (alvo.getDataHora().isBefore(limiteAntecedencia)) {
@@ -217,6 +214,8 @@ public class AgendamentoService {
     if (!agendamento.getCliente().getUsuario().getEmail().equals(email)) {
       throw new AcessoNegadoException("Voce so pode responder aos avisos dos seus agendamentos.");
     }
+    Map<Long, Barbeiro> barbeirosTravados = travarBarbeiros(
+        agendamento.getBarbeiro().getId(), resposta.barbeiroId());
     if (!agendamento.isAlteracaoHorarioPendente()) {
       throw new OperacaoInvalidaException("Este agendamento nao tem alteracao de horario pendente.");
     }
@@ -226,11 +225,7 @@ public class AgendamentoService {
             "Para remarcar agora, informe juntos o barbeiroId e a dataHora; ou envie ambos vazios para solicitar ajuda.");
       }
       if (resposta.dataHora() != null) {
-        Barbeiro novoBarbeiro = barbeiroRepository.findByIdForUpdate(resposta.barbeiroId())
-            .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", resposta.barbeiroId()));
-        if (!novoBarbeiro.isAtivo()) {
-          throw new ResourceNotFoundException("Barbeiro", resposta.barbeiroId());
-        }
+        Barbeiro novoBarbeiro = barbeirosTravados.get(resposta.barbeiroId());
         if (!expedienteConfig.permite(resposta.dataHora(), agendamento.getDuracaoMinutos())) {
           throw new HorarioIndisponivelException("O novo horario esta fora do expediente.");
         }
@@ -263,6 +258,7 @@ public class AgendamentoService {
   @Transactional
   public AgendamentoResponseDTO cancelar(Long id, String emailAutenticado, boolean admin) {
     Agendamento agendamento = buscarEntidade(id);
+    travarBarbeiros(agendamento.getBarbeiro().getId());
 
     boolean dono = agendamento.getCliente().getUsuario().getEmail().equals(emailAutenticado);
     if (!admin && !dono) {
@@ -281,6 +277,7 @@ public class AgendamentoService {
   @Transactional
   public AgendamentoResponseDTO concluir(Long id) {
     Agendamento agendamento = buscarEntidade(id);
+    travarBarbeiros(agendamento.getBarbeiro().getId());
 
     if (agendamento.getStatus() != StatusAgendamento.AGENDADO) {
       throw new OperacaoInvalidaException(
@@ -326,6 +323,25 @@ public class AgendamentoService {
         .filter(a -> ignorarId == null || !a.getId().equals(ignorarId))
         .anyMatch(a -> a.getDataHora().isBefore(fim)
             && a.getDataHora().plusMinutes(a.getDuracaoMinutos()).isAfter(inicio));
+  }
+
+  /**
+   * Todas as alteracoes de agenda travam os registros de barbeiro em ordem crescente.
+   * Isso serializa reservas concorrentes e reduz o risco de deadlock ao mover entre barbeiros.
+   */
+  private Map<Long, Barbeiro> travarBarbeiros(Long... ids) {
+    Map<Long, Barbeiro> travados = new TreeMap<>();
+    java.util.Arrays.stream(ids)
+        .filter(java.util.Objects::nonNull)
+        .distinct()
+        .sorted()
+        .forEach(id -> {
+          Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(id)
+              .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", id));
+          if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", id);
+          travados.put(id, barbeiro);
+        });
+    return travados;
   }
 
   private AgendamentoResponseDTO paraResposta(Agendamento agendamento) {
