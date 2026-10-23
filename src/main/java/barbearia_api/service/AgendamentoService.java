@@ -1,8 +1,8 @@
 package barbearia_api.service;
 
 import java.util.List;
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 
 import barbearia_api.dto.AgendamentoDTO;
 import barbearia_api.dto.AgendamentoResponseDTO;
+import barbearia_api.dto.DecisaoAlteracaoHorarioDTO.Decisao;
+import barbearia_api.dto.DecisaoAlteracaoHorarioDTO;
 import barbearia_api.config.ExpedienteConfig;
 import barbearia_api.entity.Agendamento;
 import barbearia_api.entity.Barbeiro;
@@ -55,16 +57,15 @@ public class AgendamentoService {
     // checagem de conflito e INSERT.
     Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
         .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
+    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", dto.barbeiroId());
 
     LocalDateTime inicio = dto.dataHora();
-    LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));
+    LocalDateTime fim = inicio.plusMinutes(duracaoAgendamentoMinutos);
     if (!expedienteConfig.permite(inicio, duracaoAgendamentoMinutos)) {
       throw new HorarioIndisponivelException(
           "O horario solicitado esta fora do expediente da barbearia.");
     }
-    if (repository.existsByBarbeiroIdAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
-        barbeiro.getId(), fim, inicio.minus(Duration.ofMinutes(duracaoAgendamentoMinutos)),
-        StatusAgendamento.CANCELADO)) {
+    if (temConflito(barbeiro.getId(), inicio, duracaoAgendamentoMinutos, null)) {
       throw new HorarioIndisponivelException();
     }
 
@@ -72,6 +73,7 @@ public class AgendamentoService {
     agendamento.setCliente(cliente);
     agendamento.setBarbeiro(barbeiro);
     agendamento.setDataHora(dto.dataHora());
+    agendamento.setDuracaoMinutos(Math.toIntExact(duracaoAgendamentoMinutos));
     agendamento.setStatus(StatusAgendamento.AGENDADO);
 
     return paraResposta(repository.save(agendamento));
@@ -115,22 +117,146 @@ public class AgendamentoService {
     Cliente cliente = resolverCliente(dto.clienteId(), null, true);
     Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(dto.barbeiroId())
         .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", dto.barbeiroId()));
+    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", dto.barbeiroId());
     LocalDateTime inicio = dto.dataHora();
-    LocalDateTime fim = inicio.plus(Duration.ofMinutes(duracaoAgendamentoMinutos));
-    if (!expedienteConfig.permite(inicio, duracaoAgendamentoMinutos)) {
+    long duracao = agendamento.getDuracaoMinutos();
+    if (!expedienteConfig.permite(inicio, duracao)) {
       throw new HorarioIndisponivelException(
           "O horario solicitado esta fora do expediente da barbearia.");
     }
-    if (repository.existsByBarbeiroIdAndIdNotAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
-        barbeiro.getId(), id, fim,
-        inicio.minus(Duration.ofMinutes(duracaoAgendamentoMinutos)),
-        StatusAgendamento.CANCELADO)) {
+    if (temConflito(barbeiro.getId(), inicio, duracao, id)) {
       throw new HorarioIndisponivelException();
     }
 
     agendamento.setCliente(cliente);
     agendamento.setBarbeiro(barbeiro);
     agendamento.setDataHora(inicio);
+    agendamento.setHorarioOriginal(null);
+    agendamento.setAlteracaoHorarioPendente(false);
+    agendamento.setRemarcacaoSolicitada(false);
+    return paraResposta(repository.save(agendamento));
+  }
+
+  /** Acrescenta duracao ao atendimento e desloca a sequencia seguinte do mesmo dia. */
+  @Transactional
+  public List<AgendamentoResponseDTO> adicionarTempo(Long id, int minutos) {
+    if (minutos < 1 || minutos > 240) {
+      throw new OperacaoInvalidaException("O tempo adicional deve estar entre 1 e 240 minutos.");
+    }
+    Agendamento alvo = buscarEntidade(id);
+    if (alvo.getStatus() != StatusAgendamento.AGENDADO) {
+      throw new OperacaoInvalidaException("So e possivel alterar um agendamento ativo.");
+    }
+
+    Long barbeiroId = alvo.getBarbeiro().getId();
+    Barbeiro barbeiro = barbeiroRepository.findByIdForUpdate(barbeiroId)
+        .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", barbeiroId));
+    if (!barbeiro.isAtivo()) throw new ResourceNotFoundException("Barbeiro", barbeiroId);
+
+    LocalDateTime limiteAntecedencia = LocalDateTime.now().plusHours(2);
+    if (alvo.getDataHora().isBefore(limiteAntecedencia)) {
+      throw new OperacaoInvalidaException(
+          "A alteracao precisa ser feita com pelo menos duas horas de antecedencia.");
+    }
+
+    int novaDuracao = Math.addExact(alvo.getDuracaoMinutos(), minutos);
+    if (!expedienteConfig.permite(alvo.getDataHora(), novaDuracao)) {
+      throw new HorarioIndisponivelException(
+          "O tempo adicional ultrapassa o horario de fechamento da barbearia.");
+    }
+
+    LocalDate data = alvo.getDataHora().toLocalDate();
+    List<Agendamento> doDia = repository
+        .findByBarbeiroIdAndStatusAndDataHoraGreaterThanEqualAndDataHoraLessThanOrderByDataHoraAsc(
+            barbeiroId, StatusAgendamento.AGENDADO, data.atStartOfDay(), data.plusDays(1).atStartOfDay());
+    List<Agendamento> deslocados = doDia.stream()
+        .filter(a -> a.getDataHora().isAfter(alvo.getDataHora()))
+        .toList();
+
+    if (alvo.isAlteracaoHorarioPendente()
+        || deslocados.stream().anyMatch(Agendamento::isAlteracaoHorarioPendente)) {
+      throw new OperacaoInvalidaException(
+          "Aguarde os clientes responderem aos avisos de horario anteriores antes de fazer outra alteracao.");
+    }
+
+    for (Agendamento proximo : deslocados) {
+      if (proximo.getDataHora().isBefore(limiteAntecedencia)) {
+        throw new OperacaoInvalidaException(
+            "A alteracao precisa ser feita com pelo menos duas horas de antecedencia ao proximo cliente.");
+      }
+      LocalDateTime novoHorario = proximo.getDataHora().plusMinutes(minutos);
+      if (!expedienteConfig.permite(novoHorario, proximo.getDuracaoMinutos())) {
+        throw new HorarioIndisponivelException(
+            "A sequencia remanejada ultrapassaria o expediente. Ajuste os horarios manualmente.");
+      }
+    }
+
+    // As mudancas e os avisos sao gravados na mesma transacao, sob o lock do barbeiro.
+    alvo.setDuracaoMinutos(novaDuracao);
+    List<Agendamento> alterados = new java.util.ArrayList<>();
+    alterados.add(alvo);
+    for (Agendamento proximo : deslocados) {
+      if (proximo.getHorarioOriginal() == null) {
+        proximo.setHorarioOriginal(proximo.getDataHora());
+      }
+      proximo.setDataHora(proximo.getDataHora().plusMinutes(minutos));
+      proximo.setAlteracaoHorarioPendente(true);
+      proximo.setRemarcacaoSolicitada(false);
+      alterados.add(proximo);
+    }
+    return repository.saveAll(alterados).stream().map(this::paraResposta).toList();
+  }
+
+  @Transactional
+  public AgendamentoResponseDTO responderAlteracaoHorario(
+      Long id, String email, DecisaoAlteracaoHorarioDTO resposta) {
+    Agendamento agendamento = buscarEntidade(id);
+    if (agendamento.getStatus() != StatusAgendamento.AGENDADO) {
+      throw new OperacaoInvalidaException("So e possivel responder a alteracoes de agendamentos ativos.");
+    }
+    if (!agendamento.getCliente().getUsuario().getEmail().equals(email)) {
+      throw new AcessoNegadoException("Voce so pode responder aos avisos dos seus agendamentos.");
+    }
+    if (!agendamento.isAlteracaoHorarioPendente()) {
+      throw new OperacaoInvalidaException("Este agendamento nao tem alteracao de horario pendente.");
+    }
+    if (resposta.decisao() == Decisao.REMARCAR) {
+      if ((resposta.barbeiroId() == null) != (resposta.dataHora() == null)) {
+        throw new OperacaoInvalidaException(
+            "Para remarcar agora, informe juntos o barbeiroId e a dataHora; ou envie ambos vazios para solicitar ajuda.");
+      }
+      if (resposta.dataHora() != null) {
+        Barbeiro novoBarbeiro = barbeiroRepository.findByIdForUpdate(resposta.barbeiroId())
+            .orElseThrow(() -> new ResourceNotFoundException("Barbeiro", resposta.barbeiroId()));
+        if (!novoBarbeiro.isAtivo()) {
+          throw new ResourceNotFoundException("Barbeiro", resposta.barbeiroId());
+        }
+        if (!expedienteConfig.permite(resposta.dataHora(), agendamento.getDuracaoMinutos())) {
+          throw new HorarioIndisponivelException("O novo horario esta fora do expediente.");
+        }
+        if (temConflito(novoBarbeiro.getId(), resposta.dataHora(),
+            agendamento.getDuracaoMinutos(), id)) {
+          throw new HorarioIndisponivelException();
+        }
+        agendamento.setBarbeiro(novoBarbeiro);
+        agendamento.setDataHora(resposta.dataHora());
+        agendamento.setHorarioOriginal(null);
+        agendamento.setAlteracaoHorarioPendente(false);
+        agendamento.setRemarcacaoSolicitada(false);
+        return paraResposta(repository.save(agendamento));
+      }
+      agendamento.setRemarcacaoSolicitada(true);
+    } else {
+      if (resposta.barbeiroId() != null || resposta.dataHora() != null) {
+        throw new OperacaoInvalidaException("A opcao aceitar nao recebe um novo horario.");
+      }
+      if (agendamento.isRemarcacaoSolicitada()) {
+        throw new OperacaoInvalidaException(
+            "A remarcacao ja foi solicitada; aguarde a barbearia ajustar o horario.");
+      }
+      agendamento.setAlteracaoHorarioPendente(false);
+      agendamento.setHorarioOriginal(null);
+    }
     return paraResposta(repository.save(agendamento));
   }
 
@@ -193,7 +319,24 @@ public class AgendamentoService {
         .orElseThrow(() -> new ResourceNotFoundException("Agendamento", id));
   }
 
+  private boolean temConflito(Long barbeiroId, LocalDateTime inicio, long duracao, Long ignorarId) {
+    LocalDateTime fim = inicio.plusMinutes(duracao);
+    return repository.findByBarbeiroIdAndStatusOrderByDataHoraAsc(
+            barbeiroId, StatusAgendamento.AGENDADO).stream()
+        .filter(a -> ignorarId == null || !a.getId().equals(ignorarId))
+        .anyMatch(a -> a.getDataHora().isBefore(fim)
+            && a.getDataHora().plusMinutes(a.getDuracaoMinutos()).isAfter(inicio));
+  }
+
   private AgendamentoResponseDTO paraResposta(Agendamento agendamento) {
+    String aviso = null;
+    if (agendamento.isAlteracaoHorarioPendente()) {
+      aviso = agendamento.isRemarcacaoSolicitada()
+          ? "A barbearia alterou seu horario para " + agendamento.getDataHora()
+              + ", e seu pedido de remarcacao esta aguardando atendimento."
+          : "Seu horario foi alterado de " + agendamento.getHorarioOriginal() + " para "
+              + agendamento.getDataHora() + ". Aceite a alteracao ou solicite uma remarcacao.";
+    }
     return new AgendamentoResponseDTO(
         agendamento.getId(),
         agendamento.getCliente().getId(),
@@ -201,6 +344,11 @@ public class AgendamentoService {
         agendamento.getBarbeiro().getId(),
         agendamento.getBarbeiro().getNome(),
         agendamento.getDataHora(),
-        agendamento.getStatus().name());
+        agendamento.getStatus().name(),
+        agendamento.getDuracaoMinutos(),
+        agendamento.getHorarioOriginal(),
+        agendamento.isAlteracaoHorarioPendente(),
+        agendamento.isRemarcacaoSolicitada(),
+        aviso);
   }
 }

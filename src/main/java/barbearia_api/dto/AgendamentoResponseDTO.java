@@ -16,6 +16,11 @@ public record AgendamentoResponseDTO(
     Long barbeiroId,
     String barbeiroNome,
     LocalDateTime dataHora,
-    String status
+    String status,
+    int duracaoMinutos,
+    LocalDateTime horarioAnterior,
+    boolean alteracaoHorarioPendente,
+    boolean remarcacaoSolicitada,
+    String avisoAlteracaoHorario
 ) {
 }

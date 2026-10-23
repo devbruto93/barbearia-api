@@ -7,6 +7,7 @@ import barbearia_api.repository.BarbeiroRepository;
 import barbearia_api.repository.AgendamentoRepository;
 import barbearia_api.entity.StatusAgendamento;
 import barbearia_api.config.ExpedienteConfig;
+import barbearia_api.entity.StatusAgendamento;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Duration;
 
 @Service
 public class BarbeiroService {
@@ -59,13 +59,17 @@ public class BarbeiroService {
     LocalTime fechamento = LocalTime.parse(limites[1]);
     List<LocalDateTime> disponiveis = new java.util.ArrayList<>();
     LocalDateTime agora = LocalDateTime.now();
+    List<barbearia_api.entity.Agendamento> ocupados = agendamentoRepository
+        .findByBarbeiroIdAndStatusOrderByDataHoraAsc(id, StatusAgendamento.AGENDADO);
     for (LocalDateTime inicio = data.atTime(abertura);
          !inicio.plusMinutes(duracaoMinutos).toLocalTime().isAfter(fechamento);
          inicio = inicio.plusMinutes(duracaoMinutos)) {
+      LocalDateTime candidato = inicio;
       LocalDateTime fim = inicio.plusMinutes(duracaoMinutos);
       if (!inicio.isBefore(agora)
-          && !agendamentoRepository.existsByBarbeiroIdAndDataHoraLessThanAndDataHoraGreaterThanAndStatusNot(
-              id, fim, inicio.minus(Duration.ofMinutes(duracaoMinutos)), StatusAgendamento.CANCELADO)) {
+          && ocupados.stream().noneMatch(agendamento ->
+              agendamento.getDataHora().isBefore(fim)
+                  && agendamento.getDataHora().plusMinutes(agendamento.getDuracaoMinutos()).isAfter(candidato))) {
         disponiveis.add(inicio);
       }
     }

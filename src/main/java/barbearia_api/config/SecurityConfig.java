@@ -75,6 +75,8 @@ public class SecurityConfig {
                 // vir antes do curinga, senao cai na regra de admin.
                 .requestMatchers(HttpMethod.GET, "/agendamentos/me").hasRole("CLIENTE")
                 .requestMatchers(HttpMethod.POST, "/agendamentos").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/adicionar-tempo").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/alteracao-horario").hasRole("CLIENTE")
                 .requestMatchers(HttpMethod.PATCH, "/agendamentos/*/cancelar").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/agendamentos/*").hasRole("ADMIN")
                 // Enumerar operações administrativas por método torna o controle

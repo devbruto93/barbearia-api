@@ -43,6 +43,18 @@ public class Agendamento {
   @Column(nullable = false)
   private LocalDateTime dataHora;
 
+  @Column(name = "duracao_minutos", nullable = false)
+  private int duracaoMinutos = 30;
+
+  @Column(name = "horario_original")
+  private LocalDateTime horarioOriginal;
+
+  @Column(name = "alteracao_horario_pendente", nullable = false)
+  private boolean alteracaoHorarioPendente;
+
+  @Column(name = "remarcacao_solicitada", nullable = false)
+  private boolean remarcacaoSolicitada;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private StatusAgendamento status;
@@ -77,6 +89,15 @@ public class Agendamento {
   public void setDataHora(LocalDateTime dataHora){
     this.dataHora = dataHora;
   }
+
+  public int getDuracaoMinutos(){ return duracaoMinutos; }
+  public void setDuracaoMinutos(int duracaoMinutos){ this.duracaoMinutos = duracaoMinutos; }
+  public LocalDateTime getHorarioOriginal(){ return horarioOriginal; }
+  public void setHorarioOriginal(LocalDateTime horarioOriginal){ this.horarioOriginal = horarioOriginal; }
+  public boolean isAlteracaoHorarioPendente(){ return alteracaoHorarioPendente; }
+  public void setAlteracaoHorarioPendente(boolean pendente){ this.alteracaoHorarioPendente = pendente; }
+  public boolean isRemarcacaoSolicitada(){ return remarcacaoSolicitada; }
+  public void setRemarcacaoSolicitada(boolean solicitada){ this.remarcacaoSolicitada = solicitada; }
 
   public StatusAgendamento getStatus(){
     return status;

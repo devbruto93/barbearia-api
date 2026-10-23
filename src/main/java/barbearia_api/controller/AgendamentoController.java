@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import barbearia_api.dto.AgendamentoDTO;
 import barbearia_api.dto.AgendamentoResponseDTO;
+import barbearia_api.dto.AdicionarTempoDTO;
+import barbearia_api.dto.DecisaoAlteracaoHorarioDTO;
 import barbearia_api.service.AgendamentoService;
 import jakarta.validation.Valid;
 
@@ -41,6 +43,19 @@ public class AgendamentoController {
         dto, usuario.getUsername(), isAdmin(usuario));
 
     return ResponseEntity.status(HttpStatus.CREATED).body(criado);
+  }
+
+  @PatchMapping("/{id:\\d+}/adicionar-tempo")
+  public List<AgendamentoResponseDTO> adicionarTempo(@PathVariable Long id,
+      @Valid @RequestBody AdicionarTempoDTO dto) {
+    return service.adicionarTempo(id, dto.minutos());
+  }
+
+  @PatchMapping("/{id:\\d+}/alteracao-horario")
+  public AgendamentoResponseDTO responderAlteracao(@PathVariable Long id,
+      @AuthenticationPrincipal UserDetails usuario,
+      @Valid @RequestBody DecisaoAlteracaoHorarioDTO dto) {
+    return service.responderAlteracaoHorario(id, usuario.getUsername(), dto);
   }
 
   @GetMapping("/me")

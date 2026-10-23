@@ -114,6 +114,12 @@ Depois, autentique em `POST /auth/login` com essas credenciais. O administrador 
 
 Após três senhas incorretas, o login fica bloqueado por 15 minutos. O prazo expira automaticamente; um administrador autenticado também pode liberar a conta após confirmar a identidade pelo suporte/WhatsApp, usando `POST /auth/admin/desbloqueios` com `{"email":"cliente@exemplo.com"}`. O projeto não integra com a API do WhatsApp.
 
+### Alterações de duração e horário
+
+Um ADMIN pode acrescentar de 1 a 240 minutos a um atendimento ativo com `PATCH /agendamentos/{id}/adicionar-tempo`, enviando `{"minutos":15}`. A operação exige pelo menos duas horas até o atendimento que será estendido e até cada cliente remanejado. Os próximos agendamentos ativos do mesmo barbeiro naquele dia são deslocados pelo mesmo intervalo; se algum ultrapassar o expediente, a operação inteira é recusada.
+
+Os clientes afetados veem o aviso em `GET /agendamentos/me`. Podem aceitar com `PATCH /agendamentos/{id}/alteracao-horario` e `{"decisao":"ACEITAR"}` ou remarcar no mesmo endpoint com `{"decisao":"REMARCAR","barbeiroId":1,"dataHora":"2030-01-01T11:00:00"}`. Se precisarem escolher o novo horário depois, podem enviar inicialmente apenas `{"decisao":"REMARCAR"}` e repetir a chamada com barbeiro e horário escolhidos. A resposta da API inclui `horarioAnterior`, `alteracaoHorarioPendente`, `remarcacaoSolicitada` e `avisoAlteracaoHorario` para a tela apresentar as opções. O aviso é interno à aplicação; o cliente o recebe ao consultar seus agendamentos, pois não há integração de e-mail, WhatsApp ou notificações push.
+
 ## Ideias para continuar
 
 Quero seguir evoluindo o projeto conforme avanço nos estudos. Entre as possibilidades estão criar um frontend e experimentar recursos de IA para apoiar a organização dos agendamentos e consultar informações sobre a frequência dos clientes.
