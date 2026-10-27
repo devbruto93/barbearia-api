@@ -7,6 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -139,6 +144,49 @@ class AgendamentoFlowTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message")
                         .value("O barbeiro ja possui um agendamento neste horario."));
+    }
+
+    @Test
+    @DisplayName("duas reservas simultaneas para o mesmo horario deixam apenas uma ativa")
+    void reservasSimultaneasNaoDuplicamHorario() throws Exception {
+        Barbeiro barbeiro = criarBarbeiro();
+        String tokenJoao = cadastrar("joao@email.com");
+        String tokenMaria = cadastrar("maria@email.com");
+        String corpo = """
+            {"barbeiroId":%d,"dataHora":"2030-01-01T10:00:00"}
+            """.formatted(barbeiro.getId());
+        var executor = Executors.newFixedThreadPool(2);
+        var iniciarJuntos = new CountDownLatch(1);
+
+        try {
+            var joao = executor.submit(() -> {
+                iniciarJuntos.await();
+                return mockMvc.perform(post("/agendamentos")
+                                .header("Authorization", "Bearer " + tokenJoao)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(corpo))
+                        .andReturn().getResponse().getStatus();
+            });
+            var maria = executor.submit(() -> {
+                iniciarJuntos.await();
+                return mockMvc.perform(post("/agendamentos")
+                                .header("Authorization", "Bearer " + tokenMaria)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(corpo))
+                        .andReturn().getResponse().getStatus();
+            });
+            iniciarJuntos.countDown();
+
+            org.assertj.core.api.Assertions.assertThat(List.of(
+                    joao.get(10, TimeUnit.SECONDS), maria.get(10, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(201, 409);
+            org.assertj.core.api.Assertions.assertThat(
+                    agendamentoRepository.findByBarbeiroIdAndStatusOrderByDataHoraAsc(
+                            barbeiro.getId(), barbearia_api.entity.StatusAgendamento.AGENDADO))
+                    .hasSize(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

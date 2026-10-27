@@ -384,13 +384,13 @@ class AuthFlowTest {
     }
 
     @Test
-    @DisplayName("cliente autenticado recebe 403 em /barbeiros")
-    void clienteNaoAcessaBarbeiros() throws Exception {
+    @DisplayName("cliente pode consultar barbeiros mas nao cadastra-los")
+    void clienteConsultaMasNaoGerenciaBarbeiros() throws Exception {
         String token = cadastrar("joao@email.com");
 
         mockMvc.perform(get("/barbeiros").header("Authorization", "Bearer " + token))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Forbidden"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
 
         mockMvc.perform(post("/barbeiros")
                         .header("Authorization", "Bearer " + token)
@@ -491,7 +491,11 @@ class AuthFlowTest {
                 + java.util.Base64.getUrlEncoder().encodeToString(payload.getBytes())
                 + "." + token.split("\\.")[2];
 
-        mockMvc.perform(get("/barbeiros").header("Authorization", "Bearer " + forjado))
+        mockMvc.perform(post("/barbeiros").header("Authorization", "Bearer " + forjado)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"nome":"Carlos Silva","telefone":"11988887777","especialidade":"Corte"}
+                            """))
                 .andExpect(status().isUnauthorized());
     }
 

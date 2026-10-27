@@ -30,6 +30,18 @@ Este é um projeto pessoal, criado para consolidar meus estudos de desenvolvimen
 
 Os testes usam um banco H2 em memória separado. Com a aplicação rodando, a documentação da API fica disponível em `/swagger-ui.html`.
 
+### Frontend
+
+O frontend React + JavaScript fica em `frontend/` e consome a API em `http://localhost:8080` por padrão. Em um terminal, inicie a API em modo local; em outro:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+Abra `http://localhost:5173`. O frontend cobre login e cadastro, consulta de barbeiros e horários, reserva/cancelamento de horários, avisos de alteração com aceite ou remarcação, e telas administrativas para agenda, acréscimo de tempo, barbeiros e clientes. A URL da API pode ser alterada em `frontend/.env.local`, usando `frontend/.env.example` como referência. O perfil `dev` já permite a origem padrão `http://localhost:5173`; se escolher outra porta/origem, atualize `CORS_ALLOWED_ORIGINS` no backend. A sessão JWT é mantida em `sessionStorage` e termina quando a aba é fechada ou a sessão expira.
+
 ## Ambiente local com Docker
 
 Com Docker Engine e o plugin Docker Compose instalados, copie o arquivo de exemplo, defina uma senha e um segredo JWT locais e inicie os serviços:
