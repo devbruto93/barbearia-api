@@ -58,7 +58,7 @@ docker compose up --build
 
 O Compose inicia o PostgreSQL e a API no perfil `prod`. A API aguarda o banco ficar saudável; na primeira inicialização, o Flyway aplica `V1__criar_esquema_inicial.sql`. A API fica em `http://localhost:8080`, e o Swagger em `http://localhost:8080/swagger-ui.html`.
 
-Para parar os serviços, use `Ctrl+C` e depois `docker compose down`. Os dados ficam no volume `postgres-data` e são preservados. Para apagar também o banco local e começar do zero, execute `docker compose down -v`.
+Para suspender os serviços, use `Ctrl+C` e depois `docker compose down`. Os dados ficam no volume `postgres-data` e são preservados. Para apagar também o banco local e começar do zero, execute `docker compose down -v`.
 
 Este ambiente é para desenvolvimento local: o Compose usa uma única credencial do PostgreSQL para a aplicação e para as migrações. Não reutilize as credenciais do `.env` em produção.
 
